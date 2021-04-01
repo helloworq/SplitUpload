@@ -18,7 +18,10 @@
 
 
 <script>
+    let xhrFile
     let fileObj
+    // 文件切块大小为1kb
+    const chunkSize = 1024 * 1024 * 5;
     document.getElementById('file').addEventListener('change', function () {
         fileObj = document.getElementById('file').files[0];
     })
@@ -31,30 +34,26 @@
         xhrFile.abort()
     })
 
-    // 文件切块大小为1kb
-    const chunkSize = 1024;
-    var spark = new SparkMD5.ArrayBuffer()
-    let xhrFile
-
     // 从start字节处开始上传
-    function upload(start) {
+    function upload(start, fileMd5, fileObj) {
+        var fileObjSize = fileObj.size
+        console.log("当前文件尺寸" + fileObjSize)
         // 上传完成
         let progress = document.getElementById('progress')
 
-        if (start >= fileObj.size || start === -1) {
+        if (start >= fileObjSize || start === -1) {
             console.log("上传完成")
-            progress.value = fileObj.size
+            progress.value = fileObjSize
             return;
         }
         // 获取文件块的终止字节
-        let end = (start + chunkSize > fileObj.size) ? fileObj.size : (start + chunkSize);
+        let end = (start + chunkSize > fileObjSize) ? fileObjSize : (start + chunkSize);
         // 将文件切块上传
         let fd = new FormData();
         fd.append('file', fileObj.slice(start, end));
-        fd.append('fileMd5', spark.end())
-        console.log('当前MD5: ' + spark.end())
+        fd.append('fileMd5', fileMd5)
         fd.append('fileName', fileObj.name)
-        fd.append('fileSize', fileObj.size)
+        fd.append('fileSize', fileObjSize)
         fd.append('position', start)
 
         console.log(fileObj.name)
@@ -66,27 +65,27 @@
                 // 上传一块完成后修改进度条信息，然后上传下一块
                 progress.max = fileObj.size
                 progress.value = end
-                upload(end)
+                upload(end, fileMd5, fileObj)
             }
         }
         xhrFile.send(fd);
     }
 
     // 初始化上传大小
-    function init() {
-        let xhr = new XMLHttpRequest();
+    function init(fileMd5, fileObj) {
+        let xhr = new XMLHttpRequest()
         var formData = new FormData()
-        formData.append("fileMd5", spark.end())
+
+        formData.append("fileMd5", fileMd5)
         xhr.onreadystatechange = function () {
             if (this.readyState == 4 && this.status == 200) {
                 // 将字符串转化为整数
                 let start = parseInt(this.responseText);
-                console.log('start: ' + start)
                 // 设置进度条
                 let progress = document.getElementById('progress');
                 progress.value = start;
                 // 开始上传
-                upload(start);
+                upload(start, fileMd5, fileObj);
             }
         }
         xhr.open('post', 'http://192.168.2.138:8888/getSize', true);
@@ -95,14 +94,14 @@
     }
 
     function getFileMd5(fileObj) {
+        var spark = new SparkMD5.ArrayBuffer()
+        console.log(fileObj.name)
         var blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice,
             file = fileObj,
             chunkSize = 2097152,                             // Read in chunks of 2MB
             chunks = Math.ceil(file.size / chunkSize),
             currentChunk = 0,
             fileReader = new FileReader();
-
-        console.log("文件读入内存中...")
 
         fileReader.onload = function (e) {
             spark.append(e.target.result);                   // Append array buffer
@@ -111,9 +110,9 @@
             if (currentChunk < chunks) {
                 loadNext();
             } else {
-                console.log('读取完成，MD5计算结果: ' + spark.end());
-                console.log('开始上传...')
-                init()
+                var fileMd5 = spark.end()
+                console.log('读取完成，MD5计算结果: ' + fileMd5);
+                init(fileMd5, fileObj)
             }
         }
 

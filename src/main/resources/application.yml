@@ -1,0 +1,22 @@
+server:
+  port: 8888
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@127.0.0.1/ORCL
+    username: DIST
+    password: 12345678
+    driver-class-name: oracle.jdbc.driver.OracleDriver
+  jpa:
+    database: oracle
+    show-sql: true
+    hibernate:
+      ddl-auto: none
+#  redis:
+#    host: 127.0.0.1
+#    port: 6379
+  mvc:
+    static-path-pattern: /static/**
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 200MB
