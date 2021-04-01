@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">spark-md5.min.js
+    <title>Title</title>
+    <script src="jquery-2.0.0.min.js"></script>
+    <script src="spark-md5.min.js"></script>
+</head>
+<body>
+<input type="file" id="file"><br>
+
+<progress id="progress" max="100" value="0"></progress>
+<br>
+
+<input id="submitBtn" type="submit" name="submit" class="btn btn-success" value="上传"/>
+<input id="cancelBtn" type="submit" name="cancel" class="btn btn-success" value="取消"/>
+</body>
+
+
+<script>
+    let fileObj
+    document.getElementById('file').addEventListener('change', function () {
+        fileObj = document.getElementById('file').files[0];
+    })
+
+    $("#submitBtn").click(function () {
+        getFileMd5(fileObj)
+    })
+
+    $("#cancelBtn").click(function () {
+        xhrFile.abort()
+    })
+
+    // 文件切块大小为1kb
+    const chunkSize = 1024;
+    var spark = new SparkMD5.ArrayBuffer()
+    let xhrFile
+
+    // 从start字节处开始上传
+    function upload(start) {
+        // 上传完成
+        let progress = document.getElementById('progress')
+
+        if (start >= fileObj.size || start === -1) {
+            console.log("上传完成")
+            progress.value = fileObj.size
+            return;
+        }
+        // 获取文件块的终止字节
+        let end = (start + chunkSize > fileObj.size) ? fileObj.size : (start + chunkSize);
+        // 将文件切块上传
+        let fd = new FormData();
+        fd.append('file', fileObj.slice(start, end));
+        fd.append('fileMd5', spark.end())
+        console.log('当前MD5: ' + spark.end())
+        fd.append('fileName', fileObj.name)
+        fd.append('fileSize', fileObj.size)
+        fd.append('position', start)
+
+        console.log(fileObj.name)
+        // POST表单数据
+        xhrFile = new XMLHttpRequest();
+        xhrFile.open('post', 'http://192.168.2.138:8888/upload', true);
+        xhrFile.onload = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                // 上传一块完成后修改进度条信息，然后上传下一块
+                progress.max = fileObj.size
+                progress.value = end
+                upload(end)
+            }
+        }
+        xhrFile.send(fd);
+    }
+
+    // 初始化上传大小
+    function init() {
+        let xhr = new XMLHttpRequest();
+        var formData = new FormData()
+        formData.append("fileMd5", spark.end())
+        xhr.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                // 将字符串转化为整数
+                let start = parseInt(this.responseText);
+                console.log('start: ' + start)
+                // 设置进度条
+                let progress = document.getElementById('progress');
+                progress.value = start;
+                // 开始上传
+                upload(start);
+            }
+        }
+        xhr.open('post', 'http://192.168.2.138:8888/getSize', true);
+        // 向服务器发送文件名查询大小
+        xhr.send(formData);
+    }
+
+    function getFileMd5(fileObj) {
+        var blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice,
+            file = fileObj,
+            chunkSize = 2097152,                             // Read in chunks of 2MB
+            chunks = Math.ceil(file.size / chunkSize),
+            currentChunk = 0,
+            fileReader = new FileReader();
+
+        console.log("文件读入内存中...")
+
+        fileReader.onload = function (e) {
+            spark.append(e.target.result);                   // Append array buffer
+            currentChunk++;
+
+            if (currentChunk < chunks) {
+                loadNext();
+            } else {
+                console.log('读取完成，MD5计算结果: ' + spark.end());
+                console.log('开始上传...')
+                init()
+            }
+        }
+
+        fileReader.onerror = function () {
+            console.warn('oops, something went wrong.');
+        }
+
+        function loadNext() {
+            var start = currentChunk * chunkSize,
+                end = ((start + chunkSize) >= file.size) ? file.size : start + chunkSize;
+
+            fileReader.readAsArrayBuffer(blobSlice.call(file, start, end));
+        }
+
+        loadNext();
+    }
+</script>
+</html>
