@@ -16,6 +16,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.file.Files;
 import java.util.Objects;
 
 @Slf4j
@@ -28,7 +29,7 @@ public class GetData {
     @Autowired
     FileInfoRepository fileInfoRepository;
 
-    String uploadPath = System.getProperty("user.dir");//上传文件的保存路径
+    private String uploadPath = System.getProperty("user.dir");//上传文件的保存路径
 
     /**
      * 处理上传文件
@@ -49,7 +50,6 @@ public class GetData {
                        HttpServletResponse response) throws IOException {
 
         FileInfo fileInfo = JSON.parseObject(JSON.toJSONString(redisTemplate.opsForValue().get(fileMd5)), FileInfo.class);
-        //FileInfo fileInfo = fileInfoRepository.findByFileMd5(fileMd5);
 
         if (Objects.nonNull(fileInfo)) {
             RandomAccessFile randomAccessFile = new RandomAccessFile(fileInfo.getFilePath(), "rw");
@@ -98,7 +98,6 @@ public class GetData {
             FileInfo fileInfoSaved = fileInfoRepository.save(fileInfoPrev);
             fileInfoPrev.setId(fileInfoSaved.getId());
             redisTemplate.opsForValue().set(fileMd5, fileInfoPrev);
-
         }
     }
 
@@ -112,11 +111,8 @@ public class GetData {
      */
     @PostMapping("/getSize")
     public String getSize(@RequestParam("fileMd5") @ApiParam(value = "文件MD5值", required = true) String fileMd5) {
-        System.out.println(uploadPath);
-        System.out.println("请求文件MD5: " + fileMd5);
         //启用redis缓存支持，减少对数据的请求次数
         FileInfo fileInfo = JSON.parseObject(JSON.toJSONString(redisTemplate.opsForValue().get(fileMd5)), FileInfo.class);
-        System.out.println(fileInfo);
         if (Objects.nonNull(fileInfo)) {
             //redis已缓存数据时直接走redis请求数据
             return String.valueOf(fileInfo.getFileSize());

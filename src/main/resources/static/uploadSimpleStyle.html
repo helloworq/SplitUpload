@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">spark-md5.min.js
+    <meta charset="UTF-8">
     <title>Title</title>
     <script src="jquery-2.0.0.min.js"></script>
     <script src="spark-md5.min.js"></script>
@@ -37,7 +37,7 @@
     // 从start字节处开始上传
     function upload(start, fileMd5, fileObj) {
         var fileObjSize = fileObj.size
-        console.log("当前文件尺寸" + fileObjSize)
+        console.log("当前文件大小" + fileObjSize)
         // 上传完成
         let progress = document.getElementById('progress')
 
@@ -56,16 +56,21 @@
         fd.append('fileSize', fileObjSize)
         fd.append('position', start)
 
-        console.log(fileObj.name)
         // POST表单数据
         xhrFile = new XMLHttpRequest();
         xhrFile.open('post', 'http://192.168.2.138:8888/upload', true);
         xhrFile.onload = function () {
-            if (this.readyState == 4 && this.status == 200) {
+            if (this.readyState === 4 && this.status === 200) {
                 // 上传一块完成后修改进度条信息，然后上传下一块
                 progress.max = fileObj.size
                 progress.value = end
                 upload(end, fileMd5, fileObj)
+            }
+            if (this.status===201){
+                //如果文件在服务器上已存在或者传输完成则直接将进度充满
+                //防止进度出现不饱和的情况
+                console.log("已完成传输")
+                progress.value = fileObj.size
             }
         }
         xhrFile.send(fd);
